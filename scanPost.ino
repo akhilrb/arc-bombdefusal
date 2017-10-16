@@ -6,7 +6,7 @@
 #define SS_PIN D8
 #define RST_PIN D3
 //the port on which data has to be dumped
-#define PORT "5000"
+#define PORT "3000"
 //whether to store key after scan or clear it
 #define STORE_KEY_AFTER_SCAN true
 
@@ -20,7 +20,7 @@ MFRC522::MIFARE_Key key;
 byte nuidPICC[4];
 //remains Global, updates on each successfull call of scan()
 String hexKey = "";
-String teamID = "TEAM";
+String teamID = "a";
 
 void scan()
 {
