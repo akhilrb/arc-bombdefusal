@@ -77,8 +77,7 @@ void loop() {
   // read the next 3 bytes as well
   commands[1] = Serial.read();  //Speed
   commands[2] = Serial.read();  //Angle
-
-//  commands[3] = Serial.read();
+  commands[3] = Serial.read();
 //  Serial.print("0 ");
 //  Serial.print(commands[0]);
 //  Serial.print(" 1 ");
