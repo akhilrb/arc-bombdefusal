@@ -6,9 +6,10 @@
 
 #define SS_PIN D4
 #define RST_PIN D3
-//the port on which data has to be dumped
-#define PORT "3000"
-//whether to store key after scan or clear it
+
+#define BSSID ARC
+#define PASSWORD password
+// whether to store key after scan or clear it
 #define STORE_KEY_AFTER_SCAN true
 
 //MFRC Class Instance
@@ -21,7 +22,6 @@ MFRC522::MIFARE_Key key;
 byte nuidPICC[4];
 //remains Global, updates on each successfull call of scan()
 String hexKey = "";
-String teamID = "a";
 
 byte commands[4]={0,0,0,0};
 
@@ -43,7 +43,8 @@ int FORWARD = 11;
 int BACKWARD = 9;
 
 int corr_factor = 2;
-void setup() {
+void setup()
+{
   //initialisations
   pinMode(lmotor1, OUTPUT);
   pinMode(lmotor2, OUTPUT);
@@ -53,31 +54,44 @@ void setup() {
   analogWrite(lmotor2, 0);
   analogWrite(rmotor1, 0);
   analogWrite(rmotor2, 0); 
+  
   SPI.begin();
   rfid.PCD_Init();
   Serial.begin(9600);
   delay(1000);
   Serial.println("Serial Initialized");
+
+  // connect to WiFi
+  WiFi.begin(BSSID, PASSWORD);
+  Serial.println("Contacting Host");
+  while(Wifi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("\nConnected to " + str(BSSID));
+  
+  // positon gripper
   pinMode(D0, OUTPUT);
   gripper.attach(D0);
   gripper.write(100);
 }
 
-void loop() {
+void loop(){
   // put your main code here, to run repeatedly:
   if(Serial.available()>4)
   {
      // if the first byte read is not the first byte sent from the bluetooth skip it and read the next byte
-  while(1){
+    while(1){
     commands[0] = Serial.read();  //Direction
     // check if the first byte value corresponds to those sent by the app over bluetooth
     if(commands[0]==241 || commands[0]==242 || commands[0]==243)
       break;
-  }
+    }
   // read the next 3 bytes as well
-  commands[1] = Serial.read();  //Speed
-  commands[2] = Serial.read();  //Angle
-  commands[3] = Serial.read();
+    commands[1] = Serial.read();  //Speed
+    commands[2] = Serial.read();  //Angle
+    commands[3] = Serial.read();
 //  Serial.print("0 ");
 //  Serial.print(commands[0]);
 //  Serial.print(" 1 ");
@@ -87,33 +101,28 @@ void loop() {
 //  Serial.print(" 3 ");
 //  Serial.println(commands[3]);
 
-  if(commands[3] == 4)
-  {
-    scan();
-    //sendPOST();
-    Serial.print("\n-------");
-    Serial.print(hexKey);
-    Serial.println("\n-------");
+    if(commands[3] == 4)
+    {
+      scan();
+      sendGET();
+      Serial.print(F("\n-------\n" + str(hexKey) + "\n-------\n"));
+      delay(500);
+    }
 
-  }
+    //Serial.print("comm3 \t");
+    //Serial.print(commands[3]+"\t");
+    if(commands[3]==16)
+    {
+     gripper.write(gripper_pos);
+     gripper_pos++;
+    }
+    else if(commands[3]==8)
+    {
+      gripper.write(gripper_pos);
+      gripper_pos--;
+    }
 
-  //Serial.print("comm3 \t");
-  //Serial.print(commands[3]+"\t");
-  if(commands[3]==16)
-  {
-   gripper.write(gripper_pos);
-   gripper_pos++;
-  }
-  else if(commands[3]==8)
-  {
-    gripper.write(gripper_pos);
-    gripper_pos--;
-  }
-
-  if(commands[3]==0)
-  {
-   gripper.write(gripper_pos);
-  }
+    if(commands[3]==0){gripper.write(gripper_pos);}
 
 
     int movDir = MOV_NEUTRAL, turnDir = NEUTRAL, scaledTurnSpeed = 0, scaledSpeed = 0;
@@ -126,24 +135,19 @@ void loop() {
       scaledTurnSpeed = map(recTurnSpeed - 89, 0, 21, 0, 1010);
       turnDir = RIGHT;
     }
-    else
-    if(recTurnSpeed < 88){
+    else if(recTurnSpeed < 88){
       scaledTurnSpeed = map(87 - recTurnSpeed, 0, 22, 0, 1010);
       turnDir = LEFT;
     }
-    else
-    {
-      turnDir = NEUTRAL;
-    }
+    else{turnDir = NEUTRAL;}
+    
     if(commands[0] == 241){
       movDir = FORWARD;
     }
-    else
-    if(commands[0] == 242){
+    else if(commands[0] == 242){
       movDir = BACKWARD;
     }
-    else
-    if(commands[0] == 243){
+    else if(commands[0] == 243){
       movDir = MOV_NEUTRAL;
     }
     /*
@@ -166,8 +170,7 @@ void leftWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(lmotor1, scaledSpeed);
       analogWrite(lmotor2, 0);
     }
-    else
-    if(mov_dir == BACKWARD){
+    else if(mov_dir == BACKWARD){
       analogWrite(lmotor2, scaledSpeed);
       analogWrite(lmotor1, 0);
     }
@@ -177,8 +180,7 @@ void leftWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(lmotor1, 0);
     }
   }
-  else
-  if(turn_dir == RIGHT){
+  else if(turn_dir == RIGHT){
     if(mov_dir == FORWARD){
       analogWrite(lmotor1, scaledTurn);
       analogWrite(lmotor2, 0);
@@ -189,14 +191,13 @@ void leftWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(lmotor1, 0);
     }
   }
-  else
-  if(turn_dir == LEFT){
+  else if(turn_dir == LEFT){
     if(mov_dir == FORWARD){
       analogWrite(lmotor1, scaledTurn/corr_factor);
       analogWrite(lmotor2, 0);
     }
     else
-    if(mov_dir == BACKWARD){
+  if(mov_dir == BACKWARD){
       analogWrite(lmotor2, scaledTurn/corr_factor);
       analogWrite(lmotor1, 0);
     }
@@ -209,8 +210,7 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(rmotor1, scaledSpeed);
       analogWrite(rmotor2, 0); 
     }
-    else
-    if(mov_dir == BACKWARD){
+    else if(mov_dir == BACKWARD){
       analogWrite(rmotor2, scaledSpeed);
       analogWrite(rmotor1, 0);
     }
@@ -220,14 +220,12 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(rmotor1, 0);
     }
   }
-  else
-  if(turn_dir == LEFT){
+  else if(turn_dir == LEFT){
     if(mov_dir == FORWARD){
       analogWrite(rmotor1, scaledTurn);
       analogWrite(rmotor2, 0);
     }
-    else
-    if(mov_dir == BACKWARD){
+    else if(mov_dir == BACKWARD){
       analogWrite(rmotor2, scaledTurn);
       analogWrite(rmotor1, 0);
     }
@@ -237,14 +235,12 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
       analogWrite(rmotor1, 0);
     }
   }
-  else
-  if(turn_dir == RIGHT){
+  else if(turn_dir == RIGHT){
     if(mov_dir == FORWARD){
       analogWrite(rmotor1, scaledTurn/corr_factor);
       analogWrite(rmotor2, 0);
     }
-    else
-    if(mov_dir == BACKWARD){
+    else if(mov_dir == BACKWARD){
       analogWrite(rmotor2, scaledTurn/corr_factor);
       analogWrite(rmotor1, 0);
     }
@@ -258,7 +254,7 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
 
 /*
 --------------------------------------
-MFRC SCANNING AND POST REQUEST
+MFRC SCANNING AND GET REQUEST
 --------------------------------------
 */
 void scan()
@@ -281,16 +277,9 @@ void scan()
   // Check type of PICC
   if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&  
     piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
-    piccType != MFRC522::PICC_TYPE_MIFARE_4K)
-  {
-    hexKey = "FFFFFFFF";
-    /*
-    Choose whether key value will be checked or String above
-    for(byte i = 0; i < 6; i++)
-      key.keyByte[i] = 0xFF;
-    Serial.println(F("Not a MIFARE Classic type tag"));
-    */
-    return;
+    piccType != MFRC522::PICC_TYPE_MIFARE_4K){
+      hexKey = "FFFFFFFF";
+      return;
   }
 
   //update variable only on new scan
@@ -312,7 +301,7 @@ void scan()
 //Generate Hex key from Binary dump
 void createHex(byte *buffer, byte bufferSize)
 {
-  //An eleven character string is stored in hexKey
+  //An eight character string is stored in hexKey
   for (byte i = 0; i < bufferSize; i++)
   { 
     hexKey += (buffer[i] < 0x10 ? "0" : "");
@@ -320,34 +309,33 @@ void createHex(byte *buffer, byte bufferSize)
   }
 }
 
-void sendPOST()
+void sendGET()
 {
   //here I'm assuming WiFi is already connected
   HTTPClient http;
   String message = "";
-  String POSTaddress = "http://localhost:3000/a/" + hexKey + "/";
-  http.begin(POSTaddress);
-  http.addHeader("Content-Type", "text/plain");
-  int httpCode = http.POST(message);
+  String GETaddress = "http://"+ str(WiFi.gatewayIP()) +":3000/a/" + hexKey + "/";
+  http.begin(GETaddress);
+  int httpCode = http.GET(message);
 /*
-  Our expected data from the GET request can be fetched here if you want
-  if(httpCode > 0)
-  {
-    Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-    if(httpCode == HTTP_CODE_OK)
-    {
-      String payload = http.getString();
-      Serial.println(payload);
-    }
-  }
-  else
-    Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+  Expected data from the GET request can be fetched here if you want. We are not providing it though
+  if(httpCode > 0) {
+      // HTTP header has been send and Server response header has been handled
+      USE_SERIAL.printf("[HTTP] GET... code: %d\n", httpCode);
+
+      // file found at server
+      if(httpCode == HTTP_CODE_OK) {
+          String payload = http.getString();
+          USE_SERIAL.println(payload);
+      }
+  } else {
+      USE_SERIAL.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
 */
   http.end();
 }
 /*
 --------------------------------------
-MFRC SCANNING AND POST REQUEST
+MFRC SCANNING AND GET REQUEST
 --------------------------------------
 */
 
