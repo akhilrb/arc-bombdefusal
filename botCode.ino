@@ -91,8 +91,8 @@ void loop() {
   {
     scan();
     //sendPOST();
-    Serial.println("\n-------");
-    Serial.println(hexKey);
+    Serial.print("\n-------");
+    Serial.print(hexKey);
     Serial.println("\n-------");
 
   }
@@ -128,7 +128,7 @@ void loop() {
     }
     else
     if(recTurnSpeed < 88){
-      scaledTurnSpeed = map(89 - recTurnSpeed, 0, 22, 0, 1010);
+      scaledTurnSpeed = map(87 - recTurnSpeed, 0, 22, 0, 1010);
       turnDir = LEFT;
     }
     else
@@ -192,12 +192,12 @@ void leftWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
   else
   if(turn_dir == LEFT){
     if(mov_dir == FORWARD){
-      analogWrite(lmotor1, scaledSpeed/corr_factor);
+      analogWrite(lmotor1, scaledTurn/corr_factor);
       analogWrite(lmotor2, 0);
     }
     else
     if(mov_dir == BACKWARD){
-      analogWrite(lmotor2, scaledSpeed/corr_factor);
+      analogWrite(lmotor2, scaledTurn/corr_factor);
       analogWrite(lmotor1, 0);
     }
   }
@@ -233,8 +233,8 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
     }
     else
     {
-      analogWrite(lmotor2, 0);
-      analogWrite(lmotor1, 0);
+      analogWrite(rmotor2, 0);
+      analogWrite(rmotor1, 0);
     }
   }
   else
@@ -250,8 +250,8 @@ void rightWheel(int mov_dir, int scaledSpeed, int turn_dir, int scaledTurn){
     }
     else
     {
-      analogWrite(lmotor2, 0);
-      analogWrite(lmotor1, 0);
+      analogWrite(rmotor2, 0);
+      analogWrite(rmotor1, 0);
     }
   }
 }
