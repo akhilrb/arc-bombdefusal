@@ -7,8 +7,8 @@
 #define SS_PIN D4
 #define RST_PIN D3
 
-const char* SSID = "ARC";
-const char* PASSWORD = "bphc@arc";
+const char* ssid = "ARC";
+const char* password = "bphc@arc";
  
 // whether to store key after scan or clear it
 #define STORE_KEY_AFTER_SCAN true
@@ -47,7 +47,7 @@ int corr_factor = 2;
 
 void connectToWiFi()
 {
-  WiFi.begin(SSSID, PASSWORD);
+  WiFi.begin(ssid, password);
   Serial.println("Contacting Host");
   while(WiFi.status() != WL_CONNECTED)
   {
