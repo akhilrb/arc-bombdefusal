@@ -7,8 +7,8 @@
 #define SS_PIN D4
 #define RST_PIN D3
 
-const char* ssid = "ARC";
-const char* password = "bphc@arc";
+const char* SSID = "ARC";
+const char* PASSWORD = "bphc@arc";
  
 // whether to store key after scan or clear it
 #define STORE_KEY_AFTER_SCAN true
@@ -18,11 +18,11 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 
 //create a variable for key
 MFRC522::MIFARE_Key key; 
-String checker="bullshit";
+String checker="FFFFFFFF";
 //4 bytes to store new NUID 
 byte nuidPICC[4];
 //remains Global, updates on each successfull call of scan()
-String hexKey = "bullshit";
+String hexKey = "FFFFFFFF";
 
 byte commands[4]={0,0,0,0};
 
@@ -44,6 +44,18 @@ int FORWARD = 11;
 int BACKWARD = 9;
 
 int corr_factor = 2;
+
+void connectToWiFi()
+{
+  WiFi.begin(SSSID, PASSWORD);
+  Serial.println("Contacting Host");
+  while(WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(500);
+  }
+}
+
 void setup()
 {
   //initialisations
@@ -62,14 +74,7 @@ void setup()
   delay(1000);
   Serial.println("Serial Initialized");
 
-  // connect to WiFi
-  WiFi.begin(ssid, password);
-  Serial.println("Contacting Host");
-  while(WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print(".");
-    delay(500);
-  }
+  connectToWiFi();
   
   Serial.println("\nConnected to ");
   Serial.println(WiFi.gatewayIP());
@@ -87,11 +92,12 @@ void loop(){
   if(Serial.available()>4)
   {
      // if the first byte read is not the first byte sent from the bluetooth skip it and read the next byte
-    while(1){
-    commands[0] = Serial.read();  //Direction
-    // check if the first byte value corresponds to those sent by the app over bluetooth
-    if(commands[0]==241 || commands[0]==242 || commands[0]==243)
-      break;
+    while(1)
+    {
+      commands[0] = Serial.read();
+      // check if the first byte value corresponds to those sent by the app over bluetooth
+      if(commands[0]==241 || commands[0]==242 || commands[0]==243)
+        break;
     }
   // read the next 3 bytes as well
     commands[1] = Serial.read();  //Speed
@@ -111,12 +117,12 @@ void loop(){
       scan();
       if(checker != hexKey)
       {
-      checker = hexKey;
-      sendGET();
-      Serial.print("\n-------\n");
-      Serial.print(hexKey);
-      Serial.print("\n-------\n");
-      //delay(500);
+        checker = hexKey;
+        sendGET();
+        Serial.print("\n-------\n");
+        Serial.print(hexKey);
+        Serial.print("\n-------\n");
+        //delay(500);
       }
     }
 
@@ -134,7 +140,6 @@ void loop(){
     }
 
     if(commands[3]==0){gripper.write(gripper_pos);}
-
 
     int movDir = MOV_NEUTRAL, turnDir = NEUTRAL, scaledTurnSpeed = 0, scaledSpeed = 0;
     int recSpeed = commands[1];
@@ -282,11 +287,6 @@ void scan()
     return;
 
  MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
-  //Debugging - Type of Card
-  /*
-  Serial.print(F("PICC type: "));
-  Serial.println(rfid.PICC_GetTypeName(piccType));
-  */ 
   // Check type of PICC
   if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&  
     piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
@@ -295,7 +295,7 @@ void scan()
       return;
   }
 
-  //update variable only on new scan
+  // update variable only on new scan
   if(STORE_KEY_AFTER_SCAN)
     hexKey = "";
 
@@ -311,10 +311,10 @@ void scan()
   rfid.PCD_StopCrypto1();
 }
 
-//Generate Hex key from Binary dump
+// Generate Hex key from Binary dump
 void createHex(byte *buffer, byte bufferSize)
 {
-  //An eight character string is stored in hexKey
+  // An eight character string is stored in hexKey
   for (byte i = 0; i < bufferSize; i++)
   { 
     hexKey += (buffer[i] < 0x10 ? "0" : "");
@@ -324,34 +324,30 @@ void createHex(byte *buffer, byte bufferSize)
 
 void sendGET()
 {
-  if(WiFi.status()==WL_CONNECTED)
+  if(WiFi.status() == WL_CONNECTED)
   {
-  //here I'm assuming WiFi is already connected
-  HTTPClient http;
-  String message;
-  String GETaddress = "http://192.168.0.102:3000/a/" + String(hexKey) + "/";
-  http.begin(GETaddress);
-  //http.addHeader("Content-Type", "text/plain");
-  int httpCode = http.GET();
-  if(httpCode>0)
-  {
-    message=http.getString();
-    Serial.println(message);
-  }
-  
-  http.end();
+    HTTPClient http;
+    String message;
+    String GETaddress = "http://192.168.0.102:3000/a/" + String(hexKey) + "/";
+    http.begin(GETaddress);
+    int httpCode = http.GET();
+    if(httpCode > 0)  // error results in -1
+    {
+      // print output of get request
+      message=http.getString();
+      Serial.println(message);
+    }
+    http.end();
   }
   else
-  Serial.println("Not Connected");
+  {
+    connectToWiFi();
+    sendGET();
+  }
+
 }
 /*
 --------------------------------------
 MFRC SCANNING AND GET REQUEST
 --------------------------------------
-*/
-
-/*
-> I've given separate functions for scanning and posting, combine them in the scan function if you want.
-> You might want to check, or make changes to line 91, where POSTaddress is being created. Check httpCode
-  value to determine whether post was successful.
 */
