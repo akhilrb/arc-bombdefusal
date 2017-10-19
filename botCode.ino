@@ -7,8 +7,9 @@
 #define SS_PIN D4
 #define RST_PIN D3
 
-#define BSSID ARC
-#define PASSWORD password
+const char* ssid = "ARC";
+const char* password = "bphc@arc";
+ 
 // whether to store key after scan or clear it
 #define STORE_KEY_AFTER_SCAN true
 
@@ -17,11 +18,11 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 
 //create a variable for key
 MFRC522::MIFARE_Key key; 
-
+String checker="bullshit";
 //4 bytes to store new NUID 
 byte nuidPICC[4];
 //remains Global, updates on each successfull call of scan()
-String hexKey = "";
+String hexKey = "bullshit";
 
 byte commands[4]={0,0,0,0};
 
@@ -62,15 +63,19 @@ void setup()
   Serial.println("Serial Initialized");
 
   // connect to WiFi
-  WiFi.begin(BSSID, PASSWORD);
+  WiFi.begin(ssid, password);
   Serial.println("Contacting Host");
-  while(Wifi.status() != WL_CONNECTED)
+  while(WiFi.status() != WL_CONNECTED)
   {
     Serial.print(".");
     delay(500);
   }
-  Serial.println("\nConnected to " + str(BSSID));
   
+  Serial.println("\nConnected to ");
+  Serial.println(WiFi.gatewayIP());
+  Serial.println("My IP is:");
+  Serial.println(WiFi.localIP());
+  Serial.println("OUT");
   // positon gripper
   pinMode(D0, OUTPUT);
   gripper.attach(D0);
@@ -104,9 +109,15 @@ void loop(){
     if(commands[3] == 4)
     {
       scan();
+      if(checker != hexKey)
+      {
+      checker = hexKey;
       sendGET();
-      Serial.print(F("\n-------\n" + str(hexKey) + "\n-------\n"));
-      delay(500);
+      Serial.print("\n-------\n");
+      Serial.print(hexKey);
+      Serial.print("\n-------\n");
+      //delay(500);
+      }
     }
 
     //Serial.print("comm3 \t");
@@ -259,6 +270,8 @@ MFRC SCANNING AND GET REQUEST
 */
 void scan()
 {
+  SPI.begin();
+  rfid.PCD_Init();
   //clear variable on every call of scan
   if(!STORE_KEY_AFTER_SCAN)
     hexKey = "";
@@ -311,27 +324,25 @@ void createHex(byte *buffer, byte bufferSize)
 
 void sendGET()
 {
+  if(WiFi.status()==WL_CONNECTED)
+  {
   //here I'm assuming WiFi is already connected
   HTTPClient http;
-  String message = "";
-  String GETaddress = "http://"+ str(WiFi.gatewayIP()) +":3000/a/" + hexKey + "/";
+  String message;
+  String GETaddress = "http://192.168.0.102:3000/a/" + String(hexKey) + "/";
   http.begin(GETaddress);
-  int httpCode = http.GET(message);
-/*
-  Expected data from the GET request can be fetched here if you want. We are not providing it though
-  if(httpCode > 0) {
-      // HTTP header has been send and Server response header has been handled
-      USE_SERIAL.printf("[HTTP] GET... code: %d\n", httpCode);
-
-      // file found at server
-      if(httpCode == HTTP_CODE_OK) {
-          String payload = http.getString();
-          USE_SERIAL.println(payload);
-      }
-  } else {
-      USE_SERIAL.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-*/
+  //http.addHeader("Content-Type", "text/plain");
+  int httpCode = http.GET();
+  if(httpCode>0)
+  {
+    message=http.getString();
+    Serial.println(message);
+  }
+  
   http.end();
+  }
+  else
+  Serial.println("Not Connected");
 }
 /*
 --------------------------------------
